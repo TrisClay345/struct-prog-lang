@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import sys
+import re
 
 from tokenizer import tokenize
 
@@ -10,22 +11,31 @@ from evaluator import evaluate
 
 def main():
     environment = {}
+    watchId = ""
     
     # Check for command line arguments
     if len(sys.argv) > 1:
+        # Check for watch=<identifier> argument
+        if len(sys.argv) == 3:
+            arg = sys.argv[2]
+            identifierEx = r"[a-zA-Z_][a-zA-Z0-9_]*"
+            assert arg.startswith("watch=") and re.match(identifierEx, arg[6:]), "Incorrectly formatted watch argument. Usage: 'watch=<identifier>'."
+            watchId = arg[6:]
+
         # Filename provided, read and execute it
         with open(sys.argv[1], 'r') as f:
             source_code = f.read()
         try:
             tokens = tokenize(source_code)
             ast = parse(tokens)
-            final_value, exit_status = evaluate(ast, environment)
+            final_value, exit_status = evaluate(ast, environment, watchId)
             if exit_status == "exit":
                 # print(f"Exiting with code: {final_value}") # Optional debug print
                 sys.exit(final_value if isinstance(final_value, int) else 0)
         except Exception as e:
             print(f"Error: {e}")
             sys.exit(1) # Indicate error to OS
+        
     else:
         # REPL loop
         while True:

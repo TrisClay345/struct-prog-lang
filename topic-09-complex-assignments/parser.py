@@ -14,7 +14,7 @@ from pprint import pprint
 grammar = """
     simple_expression = identifier | <boolean> | <number> | <string> | <null> | list | object | ("-" simple_expression) | ("!" simple_expression) | function | ( "(" expression ")" )
 
-    list = "[" expression { "," expression } "]"
+    list = "[" expression { "," expression } 
     object = "{" [ expression ":" expression { "," expression ":" expression } ] "}"
     function = "function" "(" [ identifier { "," identifier } ] ")" statements
 
@@ -60,7 +60,10 @@ def parse_simple_expression(tokens):
     token = tokens[0]
 
     if token["tag"] in {"identifier", "boolean", "number", "string"}:
-        return {"tag": token["tag"], "value": token["value"]}, tokens[1:]
+        if token["tag"] == "identifier":
+            return {"tag": token["tag"], "value": token["value"], "line": token["line"]}, tokens[1:]
+        else: 
+            return {"tag": token["tag"], "value": token["value"]}, tokens[1:]
     
     if token["tag"] == "null":
         return {"tag": "null"}, tokens[1:]

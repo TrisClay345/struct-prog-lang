@@ -3,6 +3,7 @@ from parser import parse
 from pprint import pprint
 import copy
 
+
 def type_of(*args):
     def single_type(x):
         if isinstance(x, bool):
@@ -160,7 +161,13 @@ def evaluate_builtin_function(function_name, args):
 
     assert False, f"Unknown builtin function '{function_name}'"
 
-def evaluate(ast, environment):
+watchValue = ""
+
+def evaluate(ast, environment, watchId = ""):
+    global watchValue
+    if watchId != "" and watchValue == "":
+        watchValue = watchId
+
     if ast["tag"] == "number":
         assert type(ast["value"]) in [
             float,
@@ -478,9 +485,15 @@ def evaluate(ast, environment):
     if ast["tag"] == "assign":
         assert "target" in ast
         target = ast["target"]
+        watched = False
+        line = 0
+        printComplexValue = False
 
         if target["tag"] == "identifier":
             name = target["value"]
+            if name == watchValue: 
+                watched = True
+                line = target["line"]
 
             if target.get("extern"):
                 scope = environment
@@ -495,6 +508,10 @@ def evaluate(ast, environment):
             target_index = name
 
         elif target["tag"] == "complex":
+            if target["base"]["value"] == watchValue: 
+                watched = True
+                line = target["base"]["line"]
+
             base, base_status = evaluate(target["base"], environment)
             if base_status == "exit": return base, "exit"
             index_ast = target["index"]
@@ -518,11 +535,20 @@ def evaluate(ast, environment):
                 target_index = index
             else:
                 assert False, f"Cannot assign to base of type {type(base)}"
+            printComplexValue = True
+            
 
         value, value_status = evaluate(ast["value"], environment)
         if value_status == "exit": return value, "exit"
 
         target_base[target_index] = value
+        # If the identifier being updated is the identifier specified in watch argument,
+        # print its new value.
+        if watched:
+            if printComplexValue:
+                print(watchValue + " new value: " + str(target_base) + " at line " + str(line))
+            else:
+                print(watchValue + " new value: " + str(value) + " at line " + str(line))
         return value, None
 
     if ast["tag"] == "return":
