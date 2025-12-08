@@ -1,0 +1,15 @@
+var = 9;
+switch(var) {
+    case 10: {
+        print("case 10");
+        break;
+    }
+    case 11: {
+        print("case 11");
+        break;
+    }
+    case 9: {
+        print("case 9");
+        break;
+    }
+}

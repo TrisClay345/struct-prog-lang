@@ -955,6 +955,61 @@ def parse_statement_list(tokens):
         # otherwise require a terminator
         assert tokens[0]["tag"] in [";","}"], f"Statement terminator missing {tokens}."
 
+def parse_case_list(tokens): 
+    # Expects an opening bracket for switch block
+    assert tokens[0]["tag"] == "{", f"Expected '{{' at position {tokens[0]["position"]}"
+    tokens = tokens[1:]
+
+    case_list = []
+    case_descriptor = {}
+    while True:
+        # If encountering exiting parenthesis (end of switch block) exit the loop
+        if tokens[0]["tag"] == '}':
+            break
+        # If encountering extra delimiters, trash them and continue
+        if tokens[0]["tag"] == ';':
+            tokens = tokens[1:]
+            continue
+    
+        # Assert that next token is a "case" or "default" token (as it should be inside the switch block)
+        assert tokens[0]["tag"] in ["case", "default"], f"Expected 'case' or 'default' at position {tokens[0]["position"]}"
+        # If the next token is a "case" token:
+        if tokens[0]["tag"] == "case":
+            tokens = tokens[1:]
+
+            # Parse case_expression
+            case_expression, tokens = parse_complex_expression(tokens)
+            # Should be a colon after this
+            assert tokens[0]["tag"] == ':', f"Expected ':' after switch case at position {tokens[0]["position"]}"
+            tokens = tokens[1:]
+            # Should be opening parenthesis for start of case block
+            assert tokens[0]["tag"] == '{', f"Expected '{{' after switch case at position {tokens[0]["position"]}"
+            # Parse case block as statement_list, save as statements
+            statements, tokens = parse_statement_list(tokens)
+            # Create case_descriptor for the given case with its expression and statements, then add it to the case_list
+            case_descriptor = {"case": case_expression, "do": statements}
+            case_list.append(case_descriptor)
+        # If next token is "default" token
+        elif tokens[0]["tag"] == "default":
+            tokens = tokens[1:]
+            # Should be followed by a colon
+            assert tokens[0]["tag"] == ':', f"Expected ':' after switch default case at position {tokens[0]["position"]}"
+            tokens = tokens[1:]
+            # Should be followed by a block
+            assert tokens[0]["tag"] == '{', f"Expected '{{' after default switch case at position {tokens[0]["position"]}"
+            statements, tokens = parse_statement_list(tokens)
+            # Create case_descriptor and append to case_list
+            case_descriptor = {"case": "default", "do": statements}
+            case_list.append(case_descriptor)
+            # Break, because default should always be the last case, there can not be more cases after default (or multiple defaults)
+            break
+    # Check for closing parenthesis of switch statement
+    assert tokens[0]["tag"] == '}', f"Expected '}}' after switch block at position {tokens[0]["position"]}"
+    tokens = tokens[1:]
+    # Return the completed case_list and remaining tokens
+    return case_list, tokens
+
+
 def test_parse_statement_list():
     """
     statement_list = "{" statement { ";" statement } "}"
@@ -1068,6 +1123,26 @@ def parse_while_statement(tokens):
     do_statements, tokens = parse_statement_list(tokens[1:])
     return {"tag": "while", "condition": condition, "do": do_statements}, tokens
 
+def parse_switch_statement(tokens):
+    # Assert that the switch token has indeed been encountered
+    assert tokens[0]["tag"] == "switch"
+    tokens = tokens[1:]
+
+    # There should be an expression inside parenthesis
+    if tokens[0]["tag"] != "(":
+        raise Exception(f"Expected '(': {tokens[0]}")
+
+    # If all goes well, parse the expression and save it as 'condition'
+    condition, tokens = parse_complex_expression(tokens[1:])
+
+    if tokens[0]["tag"] != ")":
+        raise Exception(f"Expected ')': {tokens[0]}")
+
+    # After this, the rest is the case_list, so call parse_case_list
+    case_list, tokens = parse_case_list(tokens[1:])
+
+    # Return switch statement AST segment, with condition and case_list included
+    return {"tag": "switch", "condition": condition, "cases": case_list}, tokens
 
 def test_parse_while_statement():
     """
@@ -1285,6 +1360,8 @@ def parse_statement(tokens):
         return parse_if_statement(tokens)
     if tag == "while":
         return parse_while_statement(tokens)
+    if tag == "switch":
+        return parse_switch_statement(tokens)
     if tag == "function":
         return parse_function_statement(tokens)
     if tag == "return":

@@ -399,6 +399,46 @@ def evaluate(ast, environment):
             if cond_status == "exit": return condition_value, "exit"
         return None, None # Normal loop termination (condition false or break occurred)
 
+    # When switch statement is encountered in AST:
+    if ast["tag"] == "switch":
+        # Evaluate the switch condition, saving its value as 'condition_value'
+        condition_value, cond_status = evaluate(ast["condition"], environment)
+        # If there is the exit keyword in the switch condition for some reason, exit
+        if cond_status == "exit": return condition_value, "exit"
+
+        # eval_true is used as a flag to run cases after a matching case is found
+        eval_true = False
+        # For each case in the case_list:
+        for case in ast["cases"]:
+            # If the case is not the default case:
+            if(case["case"] != "default"):
+                # Evaluate the case's condition and save its value in 'case_value'
+                case_value, case_status = evaluate(case["case"], environment)
+                # If the case value is the same as the condition value, 
+                # or if a matching case has been encountered before:
+                if case_value == condition_value or eval_true:
+                    # Evaluate the case_body for that case
+                    value, body_status = evaluate(case["do"], environment)
+                    # If there's 'return' or 'exit' statements, pass those values up by returning them
+                    if body_status == "return" or body_status == "exit":
+                        return value, body_status
+                    # If a break statement is encountered:
+                    if body_status == "break":
+                        # Return 'None, None' to signify the normal end of the switch statement
+                        return None, None
+                    # Set eval_true as a matching case has been found
+                    eval_true = True
+            # If the case is the default case:
+            else:
+                # Run the body
+                value, body_status = evaluate(case["do"], environment)
+                if body_status in ["return", exit]:
+                    return value, body_status
+                # Dont need to exit for loop, as default case can ONLY come last, so it will exit automatically
+        # Return nothing, switch statements don't return a value
+        return None, None
+
+
     if ast["tag"] == "statement_list":
         last_value = None
         for statement in ast["statements"]:
